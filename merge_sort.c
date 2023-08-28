@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <time.h>
 
-#if defined (WIN32) || (_WIN64)
+#if defined(WIN32) || (_WIN64)
 
 #include <windows.h>
 #define pthread_t DWORD
-#define pthread_create(THREAD_ID_PTR, ATTR, ROUTINE, PARAMS) CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)ROUTINE,(void*)PARAMS,0,THREAD_ID_PTR)
+#define pthread_create(THREAD_ID_PTR, ATTR, ROUTINE, PARAMS) CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ROUTINE, (void *)PARAMS, 0, THREAD_ID_PTR)
 #define sleep(ms) Sleep(ms)
 
 #else // Linux
@@ -16,24 +16,24 @@
 
 #endif
 
-struct TASK
+typedef struct TASK
 {
 	int low;
 	int high;
 	int busy;
-	int* a;
-};
+	int *a;
+} TASK;
 
 // merge function for merging two parts
-void merge(int* a, int low, int mid, int high)
+void merge(int *a, int low, int mid, int high)
 {
 
 	// n1 is size of left side and n2 is size of right side
 	int n1 = mid - low + 1;
 	int n2 = high - mid;
 
-	int* left = (int*)malloc(n1 * sizeof(int));
-	int* right = (int*)malloc(n2 * sizeof(int));
+	int *left = (int *)malloc(n1 * sizeof(int));
+	int *right = (int *)malloc(n2 * sizeof(int));
 
 	int i;
 	int j;
@@ -72,9 +72,8 @@ void merge(int* a, int low, int mid, int high)
 }
 
 // merge sort function
-void merge_sort(int* a, int low, int high)
+void merge_sort(int *a, int low, int high)
 {
-
 	// calculating mid point of array
 	int mid = low + (high - low) / 2;
 
@@ -91,9 +90,9 @@ void merge_sort(int* a, int low, int high)
 	}
 }
 
-void* merge_sort_thread(void* arg)
+void *merge_sort_thread(void *arg)
 {
-	TASK* task = (TASK*)arg;
+	TASK *task = (TASK *)arg;
 	int low;
 	int high;
 
@@ -114,116 +113,60 @@ void* merge_sort_thread(void* arg)
 	return 0;
 }
 
-// driver
-int main(int argc, char** argv)
+float sequential_driver(int size)
 {
-	char* sz;
-
-	int MAX_ARRAY_ELEMENTS = 2000;
-
-	// parse command line arguments
-	for (--argc, ++argv; argc > 0; --argc, ++argv)
-	{
-		sz = *argv;
-		if (*sz != '-')
-			break;
-
-		switch (sz[1])
-		{
-		case 'A':  // array max
-			MAX_ARRAY_ELEMENTS = atoi(sz + 2);
-			break;
-		}
-	}
-
-	printf("\n\nArray[%d]", MAX_ARRAY_ELEMENTS);
+	int MAX_ARRAY_ELEMENTS = size;
 
 	// allocate the array
-	int* array = (int*)malloc(sizeof(int) * MAX_ARRAY_ELEMENTS);
+	int *array = (int *)malloc(sizeof(int) * MAX_ARRAY_ELEMENTS);
 
 	// generating random values in array
 	srand(clock());
 	for (int i = 0; i < MAX_ARRAY_ELEMENTS; i++)
 		array[i] = rand();
 
-	printf("\n\nArray Randomized");
-
 	clock_t time = clock();
 
 	merge_sort(array, 0, MAX_ARRAY_ELEMENTS - 1);
 
-	printf("\n\nSorted in %f Seconds", (clock() - time) / 1000.0L);
+	clock_t end_time = clock();
 
 	int last = 0;
 	for (int i = 0; i < MAX_ARRAY_ELEMENTS; i++)
 	{
 		if (array[i] < last)
 		{
-			printf("\n\nArray Not Sorted");
-			return 0;
+			return -1;
 		}
 		last = array[i];
 	}
 
-	printf("\n\nArray Sorted");
-	if (MAX_ARRAY_ELEMENTS < 50)
-		for (int i = 0; i < MAX_ARRAY_ELEMENTS; i++)
-			printf(" %d", array[i]);
-	printf("\n");
-
 	free(array);
 
-	return 0;
+	return (float)(end_time - time) / CLOCKS_PER_SEC;
 }
 
-// driver paralel
-int main_paralel(int argc, char** argv)
+float paralel_driver(int size, int num_threads)
 {
-	char* sz;
-
-	int MAX_ARRAY_ELEMENTS = 2000;
-	int MAX_THREADS = 1;
-
-	// parse command line arguments
-	for (--argc, ++argv; argc > 0; --argc, ++argv)
-	{
-		sz = *argv;
-		if (*sz != '-')
-			break;
-
-		switch (sz[1])
-		{
-		case 'A':  // array max
-			MAX_ARRAY_ELEMENTS = atoi(sz + 2);
-			break;
-
-		case 'T':  // thread count
-			MAX_THREADS = atoi(sz + 2);
-			break;
-		}
-	}
-
-	printf("\n\nArray[%d]\nThreads[%d]", MAX_ARRAY_ELEMENTS, MAX_THREADS);
+	int MAX_ARRAY_ELEMENTS = size;
+	int MAX_THREADS = num_threads;
 
 	// allocate the array
-	int* array = (int*)malloc(sizeof(int) * MAX_ARRAY_ELEMENTS);
+	int *array = (int *)malloc(sizeof(int) * MAX_ARRAY_ELEMENTS);
 
 	// generating random values in array
 	srand(clock());
 	for (int i = 0; i < MAX_ARRAY_ELEMENTS; i++)
 		array[i] = rand();
 
-	printf("\n\nArray Randomized");
-
-	pthread_t* threads = (pthread_t*)malloc(sizeof(pthread_t) * MAX_THREADS);
-	TASK* tasklist = (TASK*)malloc(sizeof(TASK) * MAX_THREADS);
+	pthread_t *threads = (pthread_t *)malloc(sizeof(pthread_t) * MAX_THREADS);
+	TASK *tasklist = (TASK *)malloc(sizeof(TASK) * MAX_THREADS);
 
 	int len = MAX_ARRAY_ELEMENTS / MAX_THREADS;
 
-	TASK* task;
+	TASK *task;
 	int low = 0;
 
-	clock_t time = clock();
 
 	for (int i = 0; i < MAX_THREADS; i++, low += len)
 	{
@@ -233,6 +176,8 @@ int main_paralel(int argc, char** argv)
 		if (i == (MAX_THREADS - 1))
 			task->high = MAX_ARRAY_ELEMENTS - 1;
 	}
+
+	clock_t time = clock();
 
 	// create the threads
 	for (int i = 0; i < MAX_THREADS; i++)
@@ -248,35 +193,66 @@ int main_paralel(int argc, char** argv)
 		while (tasklist[i].busy)
 			sleep(50);
 
-
-	TASK* taskm = &tasklist[0];
+	TASK *taskm = &tasklist[0];
 	for (int i = 1; i < MAX_THREADS; i++)
 	{
-		TASK* task = &tasklist[i];
+		TASK *task = &tasklist[i];
 		merge(taskm->a, taskm->low, task->low - 1, task->high);
 	}
 
-	printf("\n\nSorted in %f Seconds", (clock() - time) / 1000.0L);
+	clock_t end_time = clock();
 
 	int last = 0;
 	for (int i = 0; i < MAX_ARRAY_ELEMENTS; i++)
 	{
 		if (array[i] < last)
 		{
-			printf("\n\nArray Not Sorted");
-			return 0;
+			return -1;
 		}
 		last = array[i];
 	}
-
-	printf("\n\nArray Sorted");
-	if (MAX_ARRAY_ELEMENTS < 50)
-		for (int i = 0; i < MAX_ARRAY_ELEMENTS; i++)
-			printf(" %d", array[i]);
-	printf("\n");
-
 	free(tasklist);
 	free(threads);
 
+	return (float)(end_time - time)/CLOCKS_PER_SEC;
+}
+
+int paralel_tests() {
+	int arr_size = 500000;
+	int threads[] = {1,2,4,8};
+
+	printf("\n\nPARALEL TESTS:\n\n");
+	printf("arr_size,\tthreds,\ttime\n");
+	for (int i = 0; i < 4; i++)
+	{
+		float acc = 0.0;
+		for (int j = 0; j < 2; i++)
+		{
+			acc += paralel_driver(arr_size, threads[i]) / 2;
+		}
+		printf("%d,\t%d,\t%fs\n", arr_size, threads[i], acc);
+	}
+	return 0;
+}
+
+int sequential_tests() {
+	int arr_size = 500000;
+
+	printf("\n\nSEQUENTIAL TESTS:\n\n");
+	printf("arr_size,\tthreds,\ttime\n");
+	float acc = 0.0;
+	for (int i = 0; i < 3; i++)
+	{
+		acc += sequential_driver(arr_size) / 3;
+	}
+	printf("%d,\t%d,\t%fs\n", arr_size, 1, acc);
+	return 0;
+}
+
+// driver
+int main(int argc, char **argv)
+{
+	sequential_tests();
+	paralel_tests();
 	return 0;
 }
