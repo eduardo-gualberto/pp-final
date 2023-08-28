@@ -1,0 +1,15 @@
+
+
+SEQUENTIAL TESTS:
+
+arr_size,       threds, time
+500000, 1,      0.110054s
+
+
+PARALEL TESTS:
+
+arr_size,       threds, time
+500000, 2,      0.108885s
+500000, 4,      0.200573s
+500000, 8,      0.254936s
+500000, 3,      0.157793s
